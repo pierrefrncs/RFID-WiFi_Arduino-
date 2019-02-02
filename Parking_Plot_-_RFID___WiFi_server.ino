@@ -1,3 +1,10 @@
+/* 
+author: Pierre Francois 
+
+This program was developped and supposed to work on the augmented 
+Arduino 2.6 IDE by DUINO EDU, on a ESP8266 D1 board
+ 
+*/
 #include <SoftwareSerial.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -6,43 +13,43 @@
 #include <SPI.h>
 #include <SD.h>
 
-//#include "index.h"
 
-#define distanceMin 100 //distance de détection du véhicule
 
-const int PIN_LED_R =8;  //Pin LED Rouge
-const int PIN_LED_V =9;  //Pin LED Verte
-const int PIN_TX= 6;     //Pin RFID
+#define distanceMin 100 //detecting distance 
+
+const int PIN_LED_R =8;  //Red LED pin 
+const int PIN_LED_V =9;  //Green LED pin
+const int PIN_TX= 6;     //RFID Pin
 const int PIN_RX= 7;     //  ----
-const int PIN_ECHO= 4;   //Pin US
+const int PIN_ECHO= 4;   //Ultra sound Pin
 const int PIN_TRIG= 3;   //    ----
 
-//-----déclaration des variable spour le RFID-----
+//----- variables for the RFID reader -----
 SoftwareSerial SoftSerial(PIN_TX, PIN_RX);
 unsigned char buffer[64];         // buffer array for data receive over serial port
 int count = 0;                    // counter for buffer array
 String carte;
 String carteMem;
 
-//-----déclaration des variables pour les US-----
+//----- variables for the US module -----
 int trig = PIN_TRIG; 
 int echo = PIN_ECHO; 
 long lecture_echo; 
 long cm;
 
-//-----déclaration des variable spour le WiFi-----
+//-----variables for the WiFi server-----
 String MY_IP;
 String MY_SSID;
 String MY_PWD;
-ESP8266WebServer server(80); // Serveur web
+ESP8266WebServer server(80); // creates web server  
 
 
-//-----déclaration des variables pour les LED-----
+//-----variables for the LED pins-----
 const int rouge = PIN_LED_R;
 const int vert = PIN_LED_V;
 
-//-----déclaration des variables pour la lecture de la page HTML-----
-String tabID[100]; //tableau contenant les ID RFID valide (max 100 ID)
+//-----variables for the SD card reading and writting -----
+String tabID[100]; //array containing IDs of the RFID tags (max 100 tags stored)
 File fichierSD;
 String str="";
 
@@ -54,18 +61,18 @@ void setup()
     digitalWrite(rouge, LOW);
     digitalWrite(vert, LOW);
   
-  //Set Up Carte SD
-    if(!SD.begin(4)) {  //4= la pin de connexion (optionnel, dépend de où on la branche je crois)
+  //Set Up SD card
+    if(!SD.begin(4)) {  //4= command Pin  
         Serial.println(F("Initialisation impossible !"));
         return;
     }
     Serial.println(F("Initialisation OK"));  
-
+/* If you want to store the HTML code of the web page on the SD card and not directly in this code
     if (!SD.exists("index.htm")) {
         Serial.println("ERROR - Can't find index.htm file!");
         return;  // can't find index file
     }
-    
+*/    
     if (!SD.exists("BDD.txt")) {
         Serial.println("ERROR - Can't find index.htm file!");
         return;  // can't find data base file
@@ -74,7 +81,7 @@ void setup()
     recupBDD_SD();
     
  //SetUp Wifi
-    connect_AP("Jarvis","12341234"); // Mettre le n° de votre groupe
+    connect_AP("Jarvis","12341234"); // put your (SSID, password)
     
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());  //IP address assigned to your ESP
@@ -83,7 +90,7 @@ void setup()
     server.on("/setTXT", handleId);
     server.begin();
     
-    Serial.println ( "Serveur http démarré" );
+    Serial.println ( "HTTP server started" );
     
     SoftSerial.begin(9600);     // the SoftSerial baud rate
     Serial.begin(9600);         // the Serial port of Arduino baud rate.
@@ -93,32 +100,32 @@ void loop(){
     server.handleClient();
 }
 
-//-----fonction liant les différentes fonctions et affichant les valeures
+//-----function to display value of the différents components 
 void affichage(){
   str="";       
-  if(!distanceUS()){      //cas où il n'y a pas de véhicule
+  if(!distanceUS()){      //no vehicules detected
         str="Pas de véhicule sur la place"; 
         
     }
 
-  else{                   //un véhiucle est détecté 
-    str+="Véhicule détecté sur la place \nEn attente d'identification "; 
-    //server.send(200, "text/plane", str); 
+  else{                   //vehicule detected 
+    str+="vehicule detected on the parking spot  \nwaitting for identification "; 
+   
     digitalWrite(rouge, HIGH);
-    if(compare()){
-        str="Autorisation validée \nID de l'utilisateur : " +carte; // afficheage réussite dans la page web
+    if(compare()){ //displaying user infos on the web page
+        str="Autorisation granted \nUser ID : " +carte;
         digitalWrite(rouge, LOW);
         digitalWrite(vert, HIGH);
-        while(distanceUS()){//met le programme en pause tant que la voiture est en place 
+        while(distanceUS()){//pause the program while the car is on the spot
         }
     }
     else{
-        str="Autorisation refusée, carte non reconnue \nID de la : " +carte; //affichage erreur dans la page web                   
+        str="Autorisation refusée, carte non reconnue \nID de la : " +carte; //displaying an error message on the web page                    
     }
   } 
 }
 
-//-----connexion à un réseau wifi via partage de co
+//-----connecting to the network
 void connect_AP(const char *ssid,const char *password ){
   delay(500);
   WiFi.mode(WIFI_AP);
@@ -132,7 +139,7 @@ void connect_AP(const char *ssid,const char *password ){
   Serial.println ( WiFi.softAPIP() );
 }
 
-//-----fonction de validation de la carte RFID
+//-----validation of the ID from the RFID tag 
 boolean compare(){
   String temp=idCarte();
   for(int i=0; i<sizeof(tabID); i++){
@@ -143,14 +150,14 @@ boolean compare(){
   return false;
 }
 
-//-----détection de la présence d'un véhicule sur la place de parking/à proximité de la borne
+//-----detecting the presence of a vehicule on the parking spot 
 boolean distanceUS(){ 
   digitalWrite(trig, HIGH); 
   delayMicroseconds(10); 
   digitalWrite(trig, LOW); 
   lecture_echo = pulseIn(echo, HIGH); 
   cm = lecture_echo / 58;
-  Serial.print("Distance cm : "); //faire une fonction d'affichage dans al page HTML
+  Serial.print("Distance cm : "); 
   Serial.println(cm); 
   
   if (cm<=distanceMin){
@@ -160,7 +167,7 @@ boolean distanceUS(){
   return false;
 }
 
-//-----fonction retournant un String contenant la valeur HEX de la carte
+//-----getting the HEX value stored on the RFID card 
 String idCarte(){ 
   // if date is coming from software serial port ==> data is coming from SoftSerial shield
     if (SoftSerial.available())              
@@ -179,7 +186,7 @@ String idCarte(){
         carteMem=carte;
         carte="";
 
-        //test affichage
+        //test display 
 //        if(carte=="120096AADAF4"){
 //          digitalWrite(led, HIGH);
 //          delay(2000);
@@ -195,7 +202,7 @@ String idCarte(){
     SoftSerial.write(Serial.read());    // write it to the SoftSerial shield
     delay(1000);
 
-  //Mise en forme du Sting à renvoyer
+  //formatting the obtained string to fit our needs
     carteMem.remove(0,1);
     carteMem.remove(carteMem.length()-1,1);
 
@@ -211,23 +218,23 @@ void clearBufferArray(){
     }                  
 }
 
-//-----fonction pour récupérer les infos d'un fichier txt dans un tableau (BDD)
+//-----get the txt information from our database (SD card here) to get the already existing users IDs 
 void recupBDD_SD(){
-  fichierSD = SD.open("BDD.txt", FILE_READ);           //Ouverture du fichier
-   if(fichierSD){                                       //Test pour écriture
-      String nouveauChiffre = "";                       //variable qui va contenir ce qu'on lit
+  fichierSD = SD.open("BDD.txt", FILE_READ);            //Open the file
+   if(fichierSD){                                       //test for writting
+      String nouveauChiffre = "";                       //readed content 
         int x = 0;   
    
-        while (fichierSD.available()){                  //tant que le fichier contient qqchose
+        while (fichierSD.available()){                  //while the file contains something 
         
             char fileChar = (char)fichierSD.read();
-            if (fileChar == '\n'){                      //tant qu'on arrive pas en bout de ligne dans le fichier texte
+            if (fileChar == '\n'){                      //while the line is not empty
             
                 tabID[sizeof(tabID)]=nouveauChiffre; 
-                nouveauChiffre = "";                    //onvite la varible  
+                nouveauChiffre = "";                    //emptying our variable
             }
             else{
-                if (fileChar >= ' ') {                  // >= ' ' pour supprimer tout ce qui est < que espace.
+                if (fileChar >= ' ') {                  // >= ' ' to suppress everything < the space
                   nouveauChiffre += fileChar;
                 }        
             }   
@@ -236,7 +243,7 @@ void recupBDD_SD(){
     }
 }
 
-void resetBDD(){    //réécrit les nouveaux ID dans le fichier de stockage
+void resetBDD(){    //write the new tags on the txt file in our SD card 
   SD.remove("BDD.txt");
   fichierSD = SD.open("BDD.txt", FILE_WRITE);  //test.txt is the file name to be created and FILE_WRITE is a command to create file.
   for (int i=0; i<sizeof(tabID)-1; i++){
@@ -246,7 +253,7 @@ void resetBDD(){    //réécrit les nouveaux ID dans le fichier de stockage
 }
 
 /////////////////////////////
-//-----Server Handeling---- PAS TOUCHER
+//-----Server Handeling----
 void handleAff() {
    server.send(200, "text/plane", str); //Send ADC value only to client ajax request
 }
