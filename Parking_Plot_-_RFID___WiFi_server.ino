@@ -3,6 +3,8 @@ author: Pierre Francois
 
 This program was developped and supposed to work on the augmented 
 Arduino 2.6 IDE by DUINO EDU, on a ESP8266 D1 board
+
+Is using the SD card (which I used as a test data base) you will need to create a "BDD.txt" text file 
  
 */
 #include <SoftwareSerial.h>
